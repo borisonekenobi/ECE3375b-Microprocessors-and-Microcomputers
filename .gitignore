@@ -1,0 +1,6 @@
+*.amp
+*.s.o
+*.axf
+*.axf.objdump
+*.srec
+*/makefile
