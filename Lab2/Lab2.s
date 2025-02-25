@@ -106,7 +106,7 @@ _show_time:
 	
 	mov r0, r5							@ numerator: counter
 	cmp r11, #0x1						@ if display switch = 1:
-	subeq r0, r6						@ subtract lap time from counter
+	moveq r0, r6						@ 	show lap time
 	
 	@ display minutes:
 	ldr r1, =6000						@ denominator: 60sec * 100cs = 6000
