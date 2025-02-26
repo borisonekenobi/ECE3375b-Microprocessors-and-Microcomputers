@@ -1,8 +1,9 @@
 .global _start
 
+max_time:			.word	0x00057E3F	@ 359,999 = (60min * 60sec * 100cs) - 1
 timeout:			.word	0x001E8480	@ 2 million
 
-seg_values:			.byte	0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f, 0x77, 0x7c, 0x39, 0x5e, 0x79, 0x71
+seg_values:			.byte	0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f, 0x77, 0x7c, 0x39, 0x5e, 0x79, 0x71 @ values for digits 0-9 and A-F on seven segment display
 seg_val_adr:		.word	seg_values	@ address of above array
 
 MPCORE_PRIV_TIMER:	.word	0xFFFEC600	@ address of A9 private timer
@@ -12,9 +13,9 @@ SW_BASE:			.word	0xFF200040	@ address of slider switches
 KEY_BASE:			.word	0xFF200050	@ address of push buttons
 
 _udiv:
-	@ if r1 is 0, infinite loop
-	@cmp r1, #0							@ if r1 = 0:
-	@hlt 0x0							@ 	halt
+										@ if denominator is 0, infinite loop
+	cmp r1, #0							@ if r1 = 0:
+	beq _udiv							@ 	loop
 	
 	mov r2, #0							@ clear register 2 for division
 	mov r3, #0							@ clear register 3 for modulus
@@ -34,6 +35,7 @@ _start:
 	ldr r2, =0							@ clear register 2
 	ldr r3, =0							@ clear register 3
 	
+	ldr r4, max_time					@ max_time
 	ldr r4, timeout						@ timeout
 	ldr r5, =0							@ centisecond (10ms) counter
 	ldr r6, =0							@ lap time
@@ -61,10 +63,7 @@ _timer_loop:
 	
 	cmp r10, #1							@ if counter flag = 1:
 	addeq r5, #1						@ 	add 1 to counter
-_loop:
-	@cmp r5, #360000					@ if counter = 60min * 60sec * 100cs
-	@beq _loop							@ 	goto loop
-	
+_loop:	
 	push {lr}							@ push the value of lr to the stack
 	bl _read_switches					@ goto read_switches
 	pop {lr}							@ pop the top value of the stack to lr
@@ -72,6 +71,12 @@ _loop:
 	push {lr}							@ push the value of lr to the stack
 	bl _show_time						@ goto show_time
 	pop {lr}							@ pop the top value of the stack to lr
+	
+										@ loop until user presses clear
+	ldr r4, max_time					@ load max_time into r4
+	sub r4, r5							@ subtract counter from max_time
+	cmp r4, #0							@ if counter = max_time
+	beq _loop							@ 	goto loop
 	
 	b _timer_loop						@ goto timer_loop
 
@@ -108,7 +113,7 @@ _show_time:
 	cmp r11, #0x1						@ if display switch = 1:
 	moveq r0, r6						@ 	show lap time
 	
-	@ display minutes:
+										@ display minutes:
 	ldr r1, =6000						@ denominator: 60sec * 100cs = 6000
 	push {lr}							@ push the value of lr to the stack
 	bl _udiv							@ do division
@@ -130,7 +135,7 @@ _show_time:
 	ldr r8, HEX5_HEX4_BASE				@ save display address to r8
 	str r2, [r8]						@ save values to seg-display
 	
-	@ display seconds:
+										@ display seconds:
 	mov r0, r11							@ numerator: seconds
 	ldr r1, =10							@ denominator: 10
 	push {lr}							@ push the value of lr to the stack
